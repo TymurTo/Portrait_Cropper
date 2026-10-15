@@ -87,6 +87,5 @@ def paint_crop_area(crop_area, event):
         min_zoom_rect = QRectF(10, 35, 220, 25)
         painter.drawText(min_zoom_rect, Qt.AlignLeft | Qt.AlignVCenter, min_scale_text)
 
-    # Внешняя рамка
     painter.setPen(QColor("#555555"))
     painter.drawRect(crop_area.rect().adjusted(0, 0, -1, -1))

@@ -119,7 +119,6 @@ class CropArea(QWidget):
             self.dragging = True
             self.last_mouse_pos = event.position()
 
-            # Меняем курсор на "сжатую руку".
             self.setCursor(Qt.ClosedHandCursor)
 
     def mouseMoveEvent(self, event: QMouseEvent):
@@ -141,8 +140,6 @@ class CropArea(QWidget):
 
         if event.button() == Qt.LeftButton:
             self.dragging = False
-
-            # Возвращаем обычный курсор.
             self.setCursor(Qt.ArrowCursor)
 
     def wheelEvent(self, event: QWheelEvent):

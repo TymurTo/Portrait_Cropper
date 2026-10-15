@@ -105,7 +105,7 @@ def build_main_window_ui(window):
         padding: 6px;
     """)
 
-    # Сборка общего интерфейса
+
     window.main_layout.addLayout(window.top_panel_layout)
     window.main_layout.addWidget(window.editors_container)
     window.main_layout.addWidget(window.status_label)

@@ -6,15 +6,7 @@ from presets.preset_utils import make_safe_filename_part
 
 
 def _make_non_conflicting_path(path: str) -> str:
-    """
-    Если файл уже существует, создает новый путь с суффиксом:
-    _1, _2, _3 и т.д.
 
-    Пример:
-        image.png
-        image_1.png
-        image_2.png
-    """
     if not os.path.exists(path):
         return path
 
@@ -29,9 +21,7 @@ def _make_non_conflicting_path(path: str) -> str:
 
 
 def get_default_single_save_name(self, selected_filter: str) -> str:
-    """
-    Строит имя файла по умолчанию для обычного сохранения.
-    """
+
     preset = self.get_selected_preset()
 
     if self.editor_panels:
@@ -51,9 +41,7 @@ def get_default_single_save_name(self, selected_filter: str) -> str:
 
 
 def get_default_export_set_name(self, selected_filter: str) -> str:
-    """
-    Строит базовое имя по умолчанию для пакетного экспорта.
-    """
+
     preset = self.get_selected_preset()
     extension = ".png" if "png" in selected_filter.lower() else ".jpg"
 
@@ -65,21 +53,18 @@ def get_default_export_set_name(self, selected_filter: str) -> str:
 
 
 def open_image(self):
-    """
-    Открывает изображение с диска и загружает его
-    во все активные панели редактора.
-    """
+
     start_dir = self.get_last_used_dir()
 
     file_path, _ = QFileDialog.getOpenFileName(
         self,
-        "Выберите изображение",
+        "Select an image",
         start_dir,
         "Изображения (*.png *.jpg *.jpeg *.bmp *.webp)"
     )
 
     if not file_path:
-        self.status_label.setText("Открытие отменено.")
+        self.status_label.setText("The opening has been cancelled")
         return
 
     success_any = False
@@ -90,29 +75,24 @@ def open_image(self):
 
     if success_any:
         self.set_last_used_dir_from_path(file_path)
-        self.status_label.setText(f"Изображение загружено: {file_path}")
+        self.status_label.setText(f"Image uploaded: {file_path}")
     else:
-        self.status_label.setText("Ошибка загрузки изображения.")
-        QMessageBox.critical(self, "Ошибка", "Не удалось загрузить изображение.")
+        self.status_label.setText("Error loading image")
+        QMessageBox.critical(self, "Error", "Failed to load the image")
 
 
 def save_result(self):
-    """
-    Сохраняет результат только из основной панели редактора.
 
-    Если файл с таким именем уже существует,
-    автоматически создается новое имя без перезаписи.
-    """
     if not self.editor_panels:
-        QMessageBox.warning(self, "Нет редактора", "Нет активных окон редактора.")
+        QMessageBox.warning(self, "No editor", "There are no active editor windows")
         return
 
     main_panel = self.editor_panels[0]
     crop_area = main_panel.crop_area
 
     if crop_area.pixmap is None:
-        QMessageBox.warning(self, "Нет изображения", "Сначала загрузите изображение.")
-        self.status_label.setText("Сохранение невозможно: изображение не загружено.")
+        QMessageBox.warning(self, "No image", "First, upload an image")
+        self.status_label.setText("Saving is not possible: the image has not been loaded")
         return
 
     result_pixmap = crop_area.render_cropped_pixmap()
@@ -120,10 +100,10 @@ def save_result(self):
     if result_pixmap is None:
         QMessageBox.critical(
             self,
-            "Ошибка",
-            "Не удалось подготовить изображение для сохранения."
+            "Error",
+            "Failed to prepare the image for saving"
         )
-        self.status_label.setText("Ошибка подготовки результата.")
+        self.status_label.setText("Error preparing the result")
         return
 
     default_filter = "PNG (*.png)"
@@ -134,14 +114,14 @@ def save_result(self):
 
     file_path, selected_filter = QFileDialog.getSaveFileName(
         self,
-        "Сохранить портрет",
+        "Save portrait",
         initial_path,
         "PNG (*.png);;JPEG (*.jpg *.jpeg)",
         default_filter
     )
 
     if not file_path:
-        self.status_label.setText("Сохранение отменено.")
+        self.status_label.setText("Saving cancelled.")
         return
 
     lower_path = file_path.lower()
@@ -152,34 +132,28 @@ def save_result(self):
         if not (lower_path.endswith(".jpg") or lower_path.endswith(".jpeg")):
             file_path += ".jpg"
 
-    # ВАЖНО: если такой файл уже есть, подбираем свободное имя
     file_path = _make_non_conflicting_path(file_path)
 
     success = result_pixmap.save(file_path)
 
     if success:
         self.set_last_used_dir_from_path(file_path)
-        self.status_label.setText(f"Файл сохранен: {file_path}")
+        self.status_label.setText(f"File saved: {file_path}")
         QMessageBox.information(
             self,
-            "Готово",
-            f"Портрет сохранен.\n\nРазмер: {crop_area.crop_width} x {crop_area.crop_height}"
+            "Ready",
+            f"Portrait saved.\n\nSize: {crop_area.crop_width} x {crop_area.crop_height}"
         )
     else:
-        self.status_label.setText("Ошибка сохранения файла.")
-        QMessageBox.critical(self, "Ошибка", "Не удалось сохранить файл.")
+        self.status_label.setText("Error saving file")
+        QMessageBox.critical(self, "Error", "Failed to save the file.")
 
 
 def export_multiple_sizes(self):
-    """
-    Экспортирует все активные панели редактора.
 
-    Если файлы с такими именами уже существуют,
-    автоматически создаются новые имена без перезаписи.
-    """
     if not self.editor_panels:
-        QMessageBox.warning(self, "Нет редакторов", "Нет активных окон редактора.")
-        self.status_label.setText("Экспорт невозможен: нет активных редакторов.")
+        QMessageBox.warning(self, "No editors", "No active editor windows")
+        self.status_label.setText("Export is not possible: no active editors")
         return
 
     panels_with_image = [
@@ -190,10 +164,10 @@ def export_multiple_sizes(self):
     if not panels_with_image:
         QMessageBox.warning(
             self,
-            "Нет изображения",
-            "Сначала загрузите изображение."
+            "No image",
+            "First, upload an image"
         )
-        self.status_label.setText("Экспорт невозможен: изображение не загружено.")
+        self.status_label.setText("Export is not possible: the image has not been loaded")
         return
 
     default_filter = "PNG (*.png)"
@@ -204,14 +178,14 @@ def export_multiple_sizes(self):
 
     file_path, selected_filter = QFileDialog.getSaveFileName(
         self,
-        "Экспорт набором",
+        "Export as a set",
         initial_path,
         "PNG (*.png);;JPEG (*.jpg *.jpeg)",
         default_filter
     )
 
     if not file_path:
-        self.status_label.setText("Экспорт набором отменен.")
+        self.status_label.setText("Export as a set has been cancelled")
         return
 
     extension = ".png" if "png" in selected_filter.lower() else ".jpg"
@@ -235,7 +209,6 @@ def export_multiple_sizes(self):
 
         export_path = f"{base_path}_panel{i + 1}_{width}x{height}{extension}"
 
-        # ВАЖНО: не перезаписываем существующий файл
         export_path = _make_non_conflicting_path(export_path)
 
         if result_pixmap.save(export_path):
