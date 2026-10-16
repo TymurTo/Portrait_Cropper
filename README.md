@@ -10,10 +10,10 @@ Originally made for Pathfinder portrait sizes (see the built-in presets), but it
 - Crop frame with a rule-of-thirds grid and a size label.
 - Drag the image with the left mouse button, zoom with the mouse wheel **towards the cursor position**.
   The image always covers the frame, so the result never has empty margins.
-- Up to **3 editor windows** at once (one main and two additional), each with its own preset.
+- Up to **3 editor windows** at once (one main and two additional), each with its own preset. A new additional window copies the main window's preset and image.
 - Size presets: built-in (read-only) and user-defined (add, rename, update size, delete).
 - Save the main window's result as PNG or JPEG.
-- "Export as a set" saves the results of all windows at once.
+- "Export as a set" saves every preset marked for export (see "Set up export") in one go, based on the main window's framing.
 - Remembers the last used folder.
 
 ## Installation and launch
@@ -37,11 +37,13 @@ python main.py
 ## Usage
 
 1. Click **Open** (or drag a file into the window). The image is loaded into all open windows.
-2. Choose a preset from the window's dropdown, or set **Width / Height** and click **Apply size**.
+2. Choose a preset from the window's dropdown, or set **Width / Height** and click **Apply size**. A manual size is shown as **Custom** in the dropdown.
 3. Mouse wheel zooms, left button pans. **Reset view** restores the initial position and scale.
 4. **Add window** adds another window with a different frame size (3 windows maximum); **✖** closes an additional window.
-5. **Save** saves the main window's result, **Export as a set** saves the results of all windows. Files are named
-   `<name>_panel<N>_<width>x<height>.png`; if a file already exists, a suffix `_1`, `_2`, etc. is added.
+5. **Save** saves the main window's result. **Export as a set** saves one file per preset that is enabled for export. Files are named
+   `<name>_<preset>_<width>x<height>.png`; if a file already exists, a suffix `_1`, `_2`, etc. is added.
+
+> **Note on "Export as a set":** the export is based on the **main window** only. For presets with a different aspect ratio than the main frame, the same center point and zoom are used, so the cut-out may differ from what you framed. Additional windows are for preview and do not affect the export.
 
 ### Presets
 
@@ -51,7 +53,7 @@ python main.py
 | Rename preset   | Renames a user-defined preset                                    |
 | Update preset   | Writes the current Width / Height into a user-defined preset     |
 | Delete preset   | Deletes a user-defined preset (with confirmation)                |
-| Set up export   | Dialog with `export_enabled` checkboxes for presets              |
+| Set up export   | Choose which presets are included in "Export as a set"           |
 
 Built-in presets (`user_defined: false`) are protected from modification and deletion.
 
@@ -95,12 +97,13 @@ Portrait_Cropper/
 - `crop_logic` is a set of functions that take a `CropArea` and compute geometry. The crop frame is fitted into the widget with a `CROP_MARGIN` margin and keeps the preset's aspect ratio.
 - The minimum zoom is calculated so that the image always fully covers the frame; the maximum is set by `MAX_SCALE`.
 - On save, the area under the frame is converted to coordinates of the original image, cut out, and scaled to the preset size.
+- Each editor panel stores its selected preset **by reference** to the shared preset list, so Rename / Update / Delete are reflected in all panels. A deleted preset turns the panel into **Custom** with the current size.
+- For "Export as a set", a temporary `CropArea` is created per preset: it takes the main window's zoom and focus point, applies the preset's frame, and renders the result.
 
 ## Known limitations
 
-- "Export as a set" saves results per **open window**, not per preset with the `export_enabled` flag. The "Set up export" dialog does not affect export yet.
+- "Export as a set" ignores the position and zoom of additional windows; only the main window's framing is used.
 - EXIF auto-rotation is not applied: photos from a phone may open rotated.
-- An additional window added **after** an image has been loaded stays empty until the file is opened again.
 - Zooming and dragging may be slow on very large images.
 - There are no automated tests.
 
