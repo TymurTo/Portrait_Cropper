@@ -2,6 +2,7 @@ import os
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
+from crop_area import CropArea
 from presets.preset_utils import make_safe_filename_part
 
 
@@ -18,6 +19,47 @@ def _make_non_conflicting_path(path: str) -> str:
         if not os.path.exists(new_path):
             return new_path
         counter += 1
+
+
+def _render_for_preset(source_area, width, height):
+    """
+    Рендерит текущее изображение главного окна под размер пресета.
+
+    Пресеты бывают с разным соотношением сторон, поэтому просто масштабировать
+    рамку главного окна нельзя (получится искажение). Вместо этого берём
+    временный CropArea такого же размера, ставим в него рамку пресета и
+    переносим туда ту же точку фокуса и тот же масштаб, что выбрал
+    пользователь в главном окне.
+    """
+
+    _, source_draw = source_area.get_display_pixmap_and_rect()
+    source_crop = source_area.get_crop_rect()
+
+    if source_draw is None or source_draw.width() <= 0 or source_draw.height() <= 0:
+        return None
+
+    # Центр рамки в долях изображения
+    focus_x = (source_crop.center().x() - source_draw.left()) / source_draw.width()
+    focus_y = (source_crop.center().y() - source_draw.top()) / source_draw.height()
+
+    temp = CropArea()
+    temp.resize(source_area.size())
+    temp.pixmap = source_area.pixmap
+    temp.scale_factor = source_area.scale_factor
+    temp.set_crop_size(width, height)
+
+    _, draw = temp.get_display_pixmap_and_rect()
+    crop = temp.get_crop_rect()
+
+    temp.offset_x += (crop.center().x() - focus_x * draw.width()) - draw.left()
+    temp.offset_y += (crop.center().y() - focus_y * draw.height()) - draw.top()
+    temp.clamp_offsets()
+
+    result = temp.render_cropped_pixmap(width, height)
+
+    temp.deleteLater()
+
+    return result
 
 
 def get_default_single_save_name(self, selected_filter: str) -> str:
@@ -42,12 +84,8 @@ def get_default_single_save_name(self, selected_filter: str) -> str:
 
 def get_default_export_set_name(self, selected_filter: str) -> str:
 
-    preset = self.get_selected_preset()
+    # Имя пресета добавляется к каждому файлу набора отдельно
     extension = ".png" if "png" in selected_filter.lower() else ".jpg"
-
-    if preset is not None:
-        preset_name = make_safe_filename_part(preset["name"])
-        return f"portrait_set_{preset_name}{extension}"
 
     return f"portrait_set{extension}"
 
@@ -156,18 +194,30 @@ def export_multiple_sizes(self):
         self.status_label.setText("Export is not possible: no active editors")
         return
 
-    panels_with_image = [
-        panel for panel in self.editor_panels
-        if panel.crop_area.pixmap is not None
-    ]
+    source_area = self.editor_panels[0].crop_area
 
-    if not panels_with_image:
+    if source_area.pixmap is None:
         QMessageBox.warning(
             self,
             "No image",
             "First, upload an image"
         )
         self.status_label.setText("Export is not possible: the image has not been loaded")
+        return
+
+    presets_to_export = [
+        preset for preset in self.presets
+        if preset.get("export_enabled", False)
+    ]
+
+    if not presets_to_export:
+        QMessageBox.warning(
+            self,
+            "No presets selected",
+            "No presets are enabled for export.\n"
+            "Use \"Set up export\" to choose them."
+        )
+        self.status_label.setText("Export is not possible: no presets enabled")
         return
 
     default_filter = "PNG (*.png)"
@@ -193,21 +243,17 @@ def export_multiple_sizes(self):
 
     saved_files = []
 
-    for i, panel in enumerate(self.editor_panels):
-        crop = panel.crop_area
+    for preset in presets_to_export:
+        width = preset["width"]
+        height = preset["height"]
 
-        if crop.pixmap is None:
-            continue
-
-        width = crop.crop_width
-        height = crop.crop_height
-
-        result_pixmap = crop.render_cropped_pixmap(width, height)
+        result_pixmap = _render_for_preset(source_area, width, height)
 
         if result_pixmap is None:
             continue
 
-        export_path = f"{base_path}_panel{i + 1}_{width}x{height}{extension}"
+        preset_name = make_safe_filename_part(preset["name"])
+        export_path = f"{base_path}_{preset_name}_{width}x{height}{extension}"
 
         export_path = _make_non_conflicting_path(export_path)
 

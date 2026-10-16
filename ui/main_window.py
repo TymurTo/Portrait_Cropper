@@ -19,6 +19,7 @@ from ui.main_window_presets import (
     update_selected_preset_from_fields,
     delete_selected_preset,
     configure_export_presets,
+    sync_top_controls,
 )
 from ui.main_window_files import (
     open_image,
@@ -117,12 +118,13 @@ class MainWindow(QMainWindow):
         panel.setMinimumWidth(520)
         panel.setMinimumHeight(520)
 
-        panel.preset_combo.currentIndexChanged.connect(
-            lambda _=None, p=panel: p.apply_selected_preset()
-        )
+        # Выбор в комбобоксе главной панели -> обновить верхние контролы
+        panel.selection_changed.connect(self.sync_top_controls)
 
         self.editor_panels.append(panel)
         self.main_editor_layout.addWidget(panel)
+
+        self.sync_top_controls()
 
     def add_editor(self):
 
@@ -137,13 +139,19 @@ class MainWindow(QMainWindow):
         panel.setMinimumHeight(240)
         panel.setMaximumWidth(420)
 
-        panel.preset_combo.currentIndexChanged.connect(
-            lambda _=None, p=panel: p.apply_selected_preset()
-        )
-
         panel.remove_button.clicked.connect(
             lambda _=None, p=panel: self.remove_editor(p)
         )
+
+        # Новое окно получает тот же пресет/размер и то же изображение,
+        # что и главное
+        if self.editor_panels:
+            main_panel = self.editor_panels[0]
+            panel.copy_selection_from(main_panel)
+
+            image_path = main_panel.crop_area.image_path
+            if image_path:
+                panel.crop_area.load_image(image_path)
 
         self.editor_panels.append(panel)
         self.extra_editors_layout.addWidget(panel)
@@ -165,7 +173,8 @@ class MainWindow(QMainWindow):
         height = self.height_spinbox.value()
 
         if self.editor_panels:
-            self.editor_panels[0].crop_area.set_crop_size(width, height)
+            self.editor_panels[0].set_custom_size(width, height)
+            self.sync_top_controls()
 
         self.status_label.setText(
             f"A new frame aspect ratio has been applied: {width} x {height}"
@@ -253,6 +262,7 @@ class MainWindow(QMainWindow):
     update_selected_preset_from_fields = update_selected_preset_from_fields
     delete_selected_preset = delete_selected_preset
     configure_export_presets = configure_export_presets
+    sync_top_controls = sync_top_controls
 
     open_image = open_image
     save_result = save_result

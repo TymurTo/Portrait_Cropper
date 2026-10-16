@@ -5,15 +5,42 @@ from dialogs.export_presets_dialog import ExportPresetsDialog
 
 def _refresh_all_editor_panel_presets(self):
 
+    # Каждая панель помнит выбранный пресет по ссылке, так что после
+    # Rename / Update / Delete она сама находит свой пресет (или становится
+    # Custom, если его удалили) и заново применяет размер рамки.
     for panel in self.editor_panels:
-        current_index = panel.preset_combo.currentIndex()
-
         panel.refresh_presets()
 
-        if panel.presets and 0 <= current_index < len(panel.presets):
-            panel.preset_combo.setCurrentIndex(current_index)
-        elif panel.presets:
-            panel.preset_combo.setCurrentIndex(0)
+
+def sync_top_controls(self):
+    """
+    Приводит верхний комбобокс и спинбоксы в соответствие с главной панелью.
+    Источник правды — editor_panels[0] (selected_preset + crop_area).
+    """
+
+    if not self.editor_panels:
+        return
+
+    main_panel = self.editor_panels[0]
+
+    index = 0
+    if main_panel.selected_preset is not None:
+        for i, preset in enumerate(self.presets, start=1):
+            if preset is main_panel.selected_preset:
+                index = i
+                break
+
+    widgets = (self.preset_combo, self.width_spinbox, self.height_spinbox)
+
+    for widget in widgets:
+        widget.blockSignals(True)
+
+    self.preset_combo.setCurrentIndex(index)
+    self.width_spinbox.setValue(main_panel.crop_area.crop_width)
+    self.height_spinbox.setValue(main_panel.crop_area.crop_height)
+
+    for widget in widgets:
+        widget.blockSignals(False)
 
 
 def refresh_preset_combo(self):
@@ -30,6 +57,8 @@ def refresh_preset_combo(self):
     self.preset_combo.blockSignals(False)
 
     _refresh_all_editor_panel_presets(self)
+
+    self.sync_top_controls()
 
 
 def get_selected_preset(self):
@@ -55,7 +84,12 @@ def get_selected_preset_with_index(self):
 
 def on_preset_selected(self, index: int):
 
+    if not self.editor_panels:
+        return
+
     if index <= 0:
+        # «Select a preset» — не выбор; возвращаем комбобокс к реальному состоянию
+        self.sync_top_controls()
         return
 
     preset = self.presets[index - 1]
@@ -63,11 +97,8 @@ def on_preset_selected(self, index: int):
     width = preset["width"]
     height = preset["height"]
 
-    self.width_spinbox.setValue(width)
-    self.height_spinbox.setValue(height)
-
-    if self.editor_panels:
-        self.editor_panels[0].crop_area.set_crop_size(width, height)
+    self.editor_panels[0].select_preset(preset)
+    self.sync_top_controls()
 
     self.status_label.setText(
         f"Preset applied: {preset['name']} ({width} x {height})"
@@ -121,9 +152,11 @@ def add_preset_from_fields(self):
 
     self.presets.append(new_preset)
     self.persist_presets()
-    self.refresh_preset_combo()
 
-    self.preset_combo.setCurrentIndex(len(self.presets))
+    if self.editor_panels:
+        self.editor_panels[0].selected_preset = new_preset
+
+    self.refresh_preset_combo()
 
     self.status_label.setText(
         f"New preset added: {name} ({width} x {height})"
@@ -188,8 +221,6 @@ def rename_selected_preset(self):
     self.persist_presets()
     self.refresh_preset_combo()
 
-    self.preset_combo.setCurrentIndex(index + 1)
-
     self.status_label.setText(
         f"Preset renamed: {old_name} → {new_name}"
     )
@@ -234,12 +265,9 @@ def update_selected_preset_from_fields(self):
     preset["height"] = new_height
 
     self.persist_presets()
+
+    # Все панели, где выбран этот пресет, получат новый размер
     self.refresh_preset_combo()
-
-    self.preset_combo.setCurrentIndex(index + 1)
-
-    if self.editor_panels:
-        self.editor_panels[0].crop_area.set_crop_size(new_width, new_height)
 
     self.status_label.setText(
         f"Preset '{preset['name']}' updated: "
@@ -280,25 +308,13 @@ def delete_selected_preset(self):
         self.status_label.setText("Preset deletion canceled")
         return
 
-    affected_panel_indexes = []
-
-    for panel_index, panel in enumerate(self.editor_panels):
-        if panel.preset_combo.currentIndex() == (index - 1):
-            affected_panel_indexes.append(panel_index)
-
     del self.presets[index - 1]
 
     self.persist_presets()
+
+    # Панели, где был выбран удалённый пресет, станут Custom
+    # с текущим размером рамки
     self.refresh_preset_combo()
-
-    self.preset_combo.setCurrentIndex(0)
-
-    if self.presets:
-        for panel_index in affected_panel_indexes:
-            if 0 <= panel_index < len(self.editor_panels):
-                panel = self.editor_panels[panel_index]
-                panel.preset_combo.setCurrentIndex(0)
-                panel.apply_selected_preset()
 
     self.status_label.setText("Custom preset deleted")
 

@@ -25,6 +25,7 @@ class CropArea(QWidget):
         super().__init__()
 
         self.pixmap = None
+        self.image_path = ""
 
         self.crop_width = DEFAULT_CROP_WIDTH
         self.crop_height = DEFAULT_CROP_HEIGHT
@@ -54,6 +55,7 @@ class CropArea(QWidget):
             return False
 
         self.pixmap = pixmap
+        self.image_path = file_path
 
         self.offset_x = 0.0
         self.offset_y = 0.0
@@ -68,6 +70,7 @@ class CropArea(QWidget):
     def clear_image(self):
 
         self.pixmap = None
+        self.image_path = ""
         self.offset_x = 0.0
         self.offset_y = 0.0
         self.scale_factor = 1.0
